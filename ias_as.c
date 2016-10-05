@@ -6,12 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "list.c"
-#include "as_routines.c"
+#include "list.h"
+#include "as_routines.h"
 
 // DEFINES
 #define LINE_SIZE 100
-
+#define COMMAND_NUMBER 3
 
 /* 
 	Function: Main function of the IAS assembler;
@@ -37,14 +37,14 @@ int main(int argc, char **argv) {
 
 
         List command_list = createList();
-        
+
         // File is read while EOF isnt reached
         while ( fgets(read_string, LINE_SIZE ,input_file) != NULL) {
         	
 
         	// Content analysis
 		    int j = 0;
-			for(int i=0; i < 3; i++) {
+			for(int i=0; i < COMMAND_NUMBER && read_string[j] != '\0'; i++) {
 
 			    // Skipping spaces and tabs
 		    	while ( read_string[j] == ' ' || read_string[j] == '\t' ) {
@@ -57,21 +57,28 @@ int main(int argc, char **argv) {
 
 
 			    // Reaching the next space between commands
-		    	while ( read_string[j] != ' ' && read_string[j] != '\t' && read_string[j] != '\n' ) {
+		    	while ( read_string[j] != ' ' && read_string[j] != '\t' && read_string[j] != '\n' && read_string != '\0') {
 		    		j = j + 1;
 				}
 	
 			}
 
-			for(int i=0; i < 3; i++) {
-				
-				printf("%s\n", string_marks[i]);
-			}
-			    
-			list_insert(command_list, string_marks[0], string_marks[1], string_marks[2]);
+			list_insert(command_list, string_marks[0], string_marks[1], string_marks[2], 0, 0);
+			
 
-			//List labels = label_treatment(command_list);
         }
+
+        List label_list = createList();
+        bool error_ocurred = first_analysis(command_list, label_list);
+
+        if ( error_ocurred == true ) {
+            return 0;
+        
+        }
+
+        //List memory_map = createList();
+
+        // error_ocurred = second analysis(command_list, label_list, memory_map);
 
         // Memory release
         free(read_string);
@@ -85,6 +92,9 @@ int main(int argc, char **argv) {
     
     }
 
+
+	return 0;
+
 }
 
 
@@ -93,8 +103,6 @@ int main(int argc, char **argv) {
 
 
 
-
-// 			ARRUMAR OS INCLUDES PRO .h
 
 /*
 
