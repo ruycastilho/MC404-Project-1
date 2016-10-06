@@ -13,6 +13,8 @@
 */
 bool first_analysis(List command_list, List label_list) {
 
+    printf("entrou primeira analise\n");
+
 	node *current_node = command_list->next;
 
 	char *code;
@@ -25,51 +27,53 @@ bool first_analysis(List command_list, List label_list) {
 	int side = LEFT;
 
 	// Runs through the list
-	while ( current_node->next != NULL && error_ocurred && address <= MAX_MEMORY ) {
+	while ( current_node != NULL && error_ocurred == false && address <= MAX_MEMORY ) {
 
+		should_end = false;
 		// Checks all the strings in a node
-		for(int i=0; i < STRING_NUMBER && error_ocurred ;i++) {
+		for(int i=0; i < STRING_NUMBER && error_ocurred == false && should_end == false ;i++) {
 			code = current_node->strings[i];
-			should_end = false;
 			
-	//printf("CODE %s\n", code);
-	//printf("entered first loop\n");
+
 
 			// Checks the characters in a string
-			for(int j=0; j < (COMMAND_SIZE - 1) && !should_end ;j++) {
-			
-	//printf("entered second loop\n");
+			for(int j=0; j < (COMMAND_SIZE - 1) && should_end == false  ;j++) {
 	
 				// If it is a directive
 				if ( code[j] == '.' ) {
 					directive_treatment(code, label_list, &address, &side, &line, &error_ocurred);
 					should_end = true;
 					
-	//printf("entered directive if\n");
+	printf("entered directive if\n");
 
 				}
 
 				// If it is a label
 				else if ( code[j] == ':' ) {
-	//printf("entered label if\n");
-					should_end = true;
-					code[j+1] = '\0';
+	printf("entered label if\n");
 					label_treatment(code, label_list, address, side, &line, &error_ocurred);
-					code[j+1] = ' ';
 					
 				}
+                
+				else if ( code[j] == '#' ) {
+			        should_end = true;
+			        
+				
+				}
+
 
 				// If it is a command
 				else if ( code[j] == ' ' ) {
 					should_end = true;
-
+	printf("entered instruction if\n");
 					if ( side == LEFT ) {
 						side = RIGHT;
 
 					}
 					else {
 						address = address + 1;
-
+						side = LEFT;
+						
 					}
 				}
 
@@ -105,24 +109,37 @@ bool first_analysis(List command_list, List label_list) {
 */
 void label_treatment(char* label, List list, int address, int side, int* line, bool* error_ocurred) {
 
-//printf("entered LT\n");
+    printf("entered LT: %s\n", label);
 
+    // Removes ':' char
+    int i=0;
+    while (label[i] != ':' ) {
+        i = i + 1;
+
+    }
+    label[i] = '\0';
+
+    // Checks if label is valid
     if ( sym_treatment(label) == true ) {
 
+        // If it isn't already stored, inserts it in the list
         if ( list_search_string1(list, label) == NULL ) {
-            list_insert(list, label, NULL, NULL, address, side);
+            list_insert(list, label, NULL, NULL, address, side, 0);
 
         }
 
     }
     
+    // In case of error
     else {
 
        	printf("ERROR on line %d\n%s is not a valid sym argument!\n", *line, label);         
         *(error_ocurred) = true;
     
     }
-//printf("exited LT\n");
+    
+    label[i] = ':';
+    printf("exited LT\n");
 
 }
 
@@ -135,85 +152,97 @@ void label_treatment(char* label, List list, int address, int side, int* line, b
 */
 void instruction_treatment(char* instruction, List memory_map, List label_list, int* address, int* side, int* line, bool* error_ocurred) {
 
+    printf("entrou tratamento de inst\n");
+
     // Separates instruction from address
 	int i = 0;
 	do {
 		i = i +1;
 
-	} while ( instruction[i] != ' ' );
+	} while ( instruction[i] != ' ' && instruction[i] != '\n' && instruction[i] != '\0');
 	instruction[i] = '\0';
     
-	while ( instruction[i] != '\"' ) {
-		i = i +1;
 
-	}
-
-    // Acquires address string
-    char *inst_address = &instruction[i];
+    // Instruction address data
+    char *inst_address;
     int numerical_address = 0;
-
+    
     // Address information to determine correct instructions(JMP, JMP+, STaddr)
     int inst_side = LEFT;
 
-    i = 1;
-	while ( inst_address[i] != '\"' ) {
-		i = i +1;
 
-	}
-    inst_address[i] = '\0';
-
-
-    // Hexadecimal argument
-	if ( inst_address[0] == '0' && inst_address[1] == 'x' ) {
-        numerical_address = hex_treatment(inst_address);
-  
-        // If error ocurred
-        if ( numerical_address < 0 ) {
-	        printf("ERROR on line %d\n%s is not a valid hex number!\n", *line, inst_address);
-	        
-            *(error_ocurred) = true;
-            return;
-
-        }
-        
-	}
-
-	// Decimal argument
-	else if ( (int)inst_address[0] < 58 && (int)inst_address[0] > 47 ) {
-        numerical_address = dec_treatment(inst_address);
-        
-        // If error ocurred
-        if ( numerical_address < 0 ) {
-            printf("ERROR on line %d\n%s is not a valid decimal number!\n", *line, inst_address);
-            
-            *(error_ocurred) = true;
-            return;
-
-        }
+    // If there is no argument, it is not needed. So, it is stored as 0.
+    i = i + 1;
+    if ( instruction[i] == '\0' || instruction[i] == '\n') {
+        inst_address = NULL;
+        numerical_address = 0;
+    
     }
 
-	// Label argument      
+    // Obtains the string cointaining the address
     else {
-    
-        node* label = list_search_string1(label_list, inst_address);
+        inst_address = &instruction[i+1];
 
-        if ( label == NULL ) {
-            printf("ERROR on line %d\n%s is not a valid label!\n", *line, inst_address);
+        i = 1;
+	    while ( inst_address[i] != '\"' ) {
+		    i = i +1;
+
+	    }
+        inst_address[i] = '\0';
+
+
+        // Hexadecimal argument
+	    if ( inst_address[0] == '0' && inst_address[1] == 'x' ) {
+            numerical_address = hex_treatment(inst_address);
+      
+            // If error ocurred
+            if ( numerical_address < 0 ) {
+	            printf("ERROR on line %d\n%s is not a valid hex number!\n", *line, inst_address);
+	            
+                *(error_ocurred) = true;
+                return;
+
+            }
             
-            *(error_ocurred) = true;
-        
+	    }
+
+	    // Decimal argument
+	    else if ( (int)inst_address[0] < 58 && (int)inst_address[0] > 47 ) {
+            numerical_address = dec_treatment(inst_address);
+            
+            // If error ocurred
+            if ( numerical_address < 0 ) {
+                printf("ERROR on line %d\n%s is not a valid decimal number!\n", *line, inst_address);
+                
+                *(error_ocurred) = true;
+                return;
+
+            }
         }
 
-        // If label was found, address and side are retrieved
+	    // Label argument      
         else {
-            numerical_address = label->integers[0];
-            inst_side = label->integers[1];
+        
+            node* label = list_search_string1(label_list, inst_address);
 
-        }
+            if ( label == NULL ) {
+                printf("ERROR on line %d\n%s is not a valid label!\n", *line, inst_address);
+                
+                *(error_ocurred) = true;
+            
+            }
 
-	}
+            // If label was found, address and side are retrieved
+            else {
+                numerical_address = label->integers[0];
+                inst_side = label->integers[1];
 
+            }
 
+	    }
+    }
+
+    printf("instruc %s\n", instruction);
     // Obtains hexadecimal equivalent of the instruction
     char *hex_equivalent;
 
@@ -306,12 +335,12 @@ void instruction_treatment(char* instruction, List memory_map, List label_list, 
 	}
 
 	else if ( strcmp (instruction, "LSH") == 0 ) {
-        hex_equivalent = "0E";
+        hex_equivalent = "14";
 
 	}
 
-	else if ( strcmp (instruction, "RHS") == 0 ) {
-        hex_equivalent = "0F";
+	else if ( strcmp (instruction, "RSH") == 0 ) {
+        hex_equivalent = "15";
 
 	}
 
@@ -334,16 +363,17 @@ void instruction_treatment(char* instruction, List memory_map, List label_list, 
          return;
 	}
 
+	printf("HEX %s MAP ADDRESS %d SIDE %d HEX ADR %d\n\n", hex_equivalent, *(address), *(side), numerical_address);
 
     // Adds instruction to memory map
-    list_insert_sorted(memory_map, hex_equivalent, NULL, NULL, *(address), *(side) );
+    list_insert_sorted(memory_map, hex_equivalent, NULL, NULL, *(address), *(side), numerical_address);
 
 }
 
 /* 
 	Function: Treats symbol arguments;
     Param: String containing sym argument;
-
+f
     Return: Flase if sym is invalid. True, if valid.
 */
 bool sym_treatment(char* macro) {
@@ -417,12 +447,7 @@ int hex_treatment(char* macro) {
 			
 			// Valid result
 			return address;
-			
-			
-			            /*if ( errno == ERANGE ) {
-				            printf("ERROR on line %d %s is not a valid hex number!\n", *line, macro2);
 
-			            }*/
 
 		}
 		
@@ -826,7 +851,19 @@ void directive_treatment(char* directive, List label_list, int *address, int *si
 */
 bool second_analysis(List command_list, List label_list, List memory_map) {
 
+    printf("entrou segunda analise\n");
+
+
+
 	node *current_node = command_list->next;
+
+	/*while ( current_node->next != NULL ) {
+
+        printf("%s\n", current_node->strings[0]);
+
+        current_node = current_node->next;
+    }
+    */
 
 	char *code;
 	
@@ -838,17 +875,17 @@ bool second_analysis(List command_list, List label_list, List memory_map) {
 	int side = LEFT;
 
 	// Runs through the list
-	while ( current_node->next != NULL && error_ocurred && address <= MAX_MEMORY ) {
+	while ( current_node != NULL && error_ocurred == false && address <= MAX_MEMORY ) {
 
+		should_end = false;
 		// Checks all the strings in a node
-		for(int i=0; i < STRING_NUMBER && error_ocurred ;i++) {
+		for(int i=0; i < STRING_NUMBER && error_ocurred == false && should_end == false ;i++) {
 			code = current_node->strings[i];
-			should_end = false;
-			
 
 			// Checks the characters in a string
-			for(int j=0; j < (COMMAND_SIZE - 1) && !should_end ;j++) {
-			
+			for(int j=0; j < (COMMAND_SIZE - 1) && should_end == false  ;j++) {
+
+					printf("antess %s\n", code);
 				// If it is a directive
 				if ( code[j] == '.' ) {
 					directive_treatment(code, label_list, &address, &side, &line, &error_ocurred);
@@ -862,9 +899,16 @@ bool second_analysis(List command_list, List label_list, List memory_map) {
 
 				}
 
+				else if ( code[j] == '#' ) {
+			        should_end = true;
+			        
+				
+				}
+				
 				// If it is a command
-				else if ( code[j] == ' ' ) {
+				else if ( code[j] == ' ' || code[j] == '\n') {
 					should_end = true;
+					printf("\nola %s\n", code);
 					instruction_treatment(code, memory_map, label_list, &address, &side, &line, &error_ocurred);
 
 					if ( side == LEFT ) {
@@ -873,6 +917,7 @@ bool second_analysis(List command_list, List label_list, List memory_map) {
 					}
 					else {
 						address = address + 1;
+						side = LEFT;
 
 					}
 				}
@@ -889,26 +934,116 @@ bool second_analysis(List command_list, List label_list, List memory_map) {
 	//     POR OS FREES   free(read_string);
 
 
-
-    // Filling gaps with zeros
-    
-    
-    // Printing memory map
-    
-    current_node = memory_map->next;
-
-    while ( current_node != NULL ) {
-
-       // printf("%03x %s %03x %s %03x", current_node->value1, current_node->strings[0],
-          // current_node->strings
-
-
-    }
-    
     
 	return error_ocurred;
 
 }
 
 
+
+
+/* 
+	Function: Prints memory map either in stdout or in a output file;
+    Param: Pointer to memory map list, string containing name of the output
+           file or NUll if map should be printed in stdout;
+           
+    Return: None.
+*/
+void print_map(List memory_map, char* output_file_name) {
+    
+    // Skips head-node
+    node* current_node = memory_map->next;
+
+    // Controls the line being printed
+    int past_side = -1;
+    int current_side = 0;
+
+    // Memory map being printed in stdout
+    if ( output_file_name == NULL ) {
+
+        while ( current_node != NULL ) {
+        
+            current_side = current_node->integers[1];
+ 
+            // If it is on the left side
+            if (  current_side == LEFT  ) {
+
+                // If right side is empty
+                if ( past_side == LEFT ) {
+                    fprintf(stdout, "%s", " 00 000\n");
+
+                }
+
+                fprintf(stdout, "%03X %s %03X", current_node->integers[0], current_node->strings[0], current_node->integers[2]);
+
+
+            }
+            
+            // If it is on the right side
+            else {
+            
+                fprintf(stdout, " %s %03X\n", current_node->strings[0], current_node->integers[2]);
+
+            
+            
+            
+            
+            }
+            current_node = current_node->next;
+            past_side = current_side;
+            
+        }
+    }
+
+    // Memory map being printed in file
+    else {
+
+        FILE *map_output = fopen(output_file_name, "w");
+
+        while ( current_node != NULL ) {
+        
+            current_side = current_node->integers[1];
+ 
+            // If it is on the left side
+            if (  current_side == LEFT  ) {
+
+                // If right side is empty
+                if ( past_side == LEFT ) {
+                    fprintf(map_output, "%s", " 00 000\n");
+
+                }
+
+                fprintf(map_output, "%03X %s %03X", current_node->integers[0], current_node->strings[0], current_node->integers[2]);
+
+
+            }
+            
+            // If it is on the right side
+            else {
+            
+                fprintf(map_output, "%s %03X", current_node->strings[0], current_node->integers[2]);
+
+            
+            
+            
+            
+            }
+
+            past_side = current_side;
+            current_node = current_node->next;
+
+        }
+
+        fclose(map_output);
+
+    }
+
+
+}
+
+
+              	       //     printf("ERROR on line %d\n%s is not a valid decimal number!\n", *line, macro1);
+	             //fprintf(stdout, "%s %d %s %s %s", "ERROR on line", *line, "\n", string, "is not a valid...!\n");
+
+// fprintf no lugar dos printfs
 // RESOLVER COMO COLOCAR 2 INSTRUÇOES NO NODE. OU COMO COLOCAR 1 EM CADA EM ORDEM, PRECISA DE MAIS 1 INTEGER

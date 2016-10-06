@@ -14,11 +14,12 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 // DEFINES
 #define STRING_SIZE 64
 #define STRING_NUMBER 3
-#define INTEGER_NUMBER 2
+#define INTEGER_NUMBER 3
 
 // List struct with head-node containing strings as data variables
 typedef struct node {
@@ -32,20 +33,20 @@ typedef struct node {
 
 /* 
 	Function: Inserts a node in end of the list;
-    Param: Three string variables to be stored in the new node;
+    Param: Three string and three integer variables to be stored in the new node;
 
     Return: void.
 */
-void list_insert(List list, char *string1, char *string2, char *string3, int value1, int value2);
+void list_insert(List list, char *string1, char *string2, char *string3, int value1, int value2, int value3);
 
 
 /* 
-	Function: Inserts a node in a list, sorted by a integer;
-    Param: Three string variables to be stored in the new node;
+	Function: Inserts a node in a list, sorted by two integers;
+    Param: Three string and three integer variables to be stored in the new node;
 
     Return: void.
 */
-void list_insert_sorted(List list, char *string1, char *string2, char *string3, int value1, int value2);
+void list_insert_sorted(List list, char *string1, char *string2, char *string3, int value1, int value2, int value3);
 
 
 

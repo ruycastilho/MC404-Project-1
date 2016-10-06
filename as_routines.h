@@ -101,4 +101,13 @@ void directive_treatment(char* directive, List label_list, int *address, int *si
 */
 bool second_analysis(List command_list, List label_list, List memory_map);
 
+/* 
+	Function: Prints memory map either in stdout or in a output file;
+    Param: Pointer to memory map list, string containing name of the output
+           file or NUll if map should be printed in stdout;
+           
+    Return: None.
+*/
+void print_map(List memory_map, char* output_file_name);
+
 #endif

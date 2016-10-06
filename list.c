@@ -8,11 +8,11 @@
 
 /* 
 	Function: Inserts a node in end of the list;
-    Param: Three string variables to be stored in the new node;
+    Param: Three string and three integer variables to be stored in the new node;
 
     Return: void.
 */
-void list_insert(List list, char *string1, char *string2, char *string3, int value1, int value2) {
+void list_insert(List list, char *string1, char *string2, char *string3, int value1, int value2, int value3) {
 
     node *current_node = list;
     node *new_node = (node*)malloc(sizeof(node));
@@ -41,7 +41,8 @@ void list_insert(List list, char *string1, char *string2, char *string3, int val
 
     new_node->integers[0] = value1;
     new_node->integers[1] = value2;
-
+    new_node->integers[2] = value3;
+ 
     new_node->next = NULL;
 
 
@@ -60,11 +61,11 @@ void list_insert(List list, char *string1, char *string2, char *string3, int val
 
 /* 
 	Function: Inserts a node in a list, sorted by two integers;
-    Param: Three string variables to be stored in the new node;
+    Param: Three string and three integer variables to be stored in the new node;
 
     Return: void.
 */
-void list_insert_sorted(List list, char *string1, char *string2, char *string3, int value1, int value2) {
+void list_insert_sorted(List list, char *string1, char *string2, char *string3, int value1, int value2, int value3) {
 
     node *current_node = list;
     node *new_node = (node*)malloc(sizeof(node));
@@ -80,31 +81,48 @@ void list_insert_sorted(List list, char *string1, char *string2, char *string3, 
     	strcpy(new_node->strings[0], string1);
 
 	}
+    else {
+        new_node->strings[0] = NULL;
+
+    }
 
 	if ( string2 != NULL ) {
     	strcpy(new_node->strings[1], string2);
 
 	}
+    else {
+        new_node->strings[1] = NULL;
+
+    }
 
 	if ( string3 != NULL ) {
     	strcpy(new_node->strings[2], string3);
 
 	}
-
-    new_node->integers[0] = value1;
-    new_node->integers[1] = value2;
-
-    new_node->next = NULL;
-
-
-    while ( current_node->next->integers[0] < value1 ) {
-        current_node = current_node->next;
+    else {
+        new_node->strings[2] = NULL;
 
     }
 
-    if ( current_node->next->integers[0] == value1 && current_node->next->integers[1] < value2 ) {
-       current_node = current_node->next;  
-    
+  
+    new_node->integers[0] = value1;
+    new_node->integers[1] = value2;
+    new_node->integers[2] = value3;
+
+    new_node->next = NULL;
+
+    if ( current_node->next != NULL ) {
+
+        while ( current_node->next != NULL && current_node->next->integers[0] < value1 ) {
+            current_node = current_node->next;
+
+        }
+
+        if ( current_node->next != NULL && current_node->next->integers[0] == value1 && current_node->next->integers[1] < value2 ) {
+           current_node = current_node->next;  
+        
+        }
+
     }
 
     new_node->next = current_node->next;
