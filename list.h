@@ -13,8 +13,7 @@
 #include "list.h"
 #include <stdbool.h>
 #include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include <stdlib.h> 
 
 // DEFINES
 #define STRING_SIZE 64
@@ -67,4 +66,13 @@ node* list_search_string1(List list, char* key);
 */
 List createList();
 
+
+/* 
+	Function: Releases allocated memory occupied by a list;
+    Param: Pointer to head node of a list;
+
+    Return: None.
+*/
+void list_free(List list);
+ 
 #endif

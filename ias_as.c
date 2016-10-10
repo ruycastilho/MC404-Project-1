@@ -75,10 +75,20 @@ int main(int argc, char **argv) {
         // Closes input file
         fclose(input_file);
 
+        // Creates and opens output file, if necessary
+        char *output_file_name = argv[2];
+        FILE *output_file = NULL;
+
+        if ( output_file_name != NULL ) {
+            fopen("output_file_name", "w");
+
+        }
+
+
         List label_list = createList();
 
         // Runs first analysis
-        bool error_ocurred = first_analysis(command_list, label_list);
+        bool error_ocurred = first_analysis(command_list, label_list, NULL, output_file);
 
         // Finishes if an error ocurred
         if ( error_ocurred == true ) {
@@ -89,7 +99,7 @@ int main(int argc, char **argv) {
         List memory_map = createList();
 
         // Runs second analysis
-        error_ocurred = second_analysis(command_list, label_list, memory_map);
+        error_ocurred = second_analysis(command_list, label_list, memory_map, output_file);
 
         // Finishes if an error ocurred
         if ( error_ocurred == true ) {
@@ -98,10 +108,17 @@ int main(int argc, char **argv) {
         }
 
         // Prints memory map
-        char *output_file_name = argv[2];
-        print_map(memory_map, output_file_name);
-        
+        print_map(memory_map, output_file);
+
         // Memory release
+        if ( output_file != NULL ) {
+            fclose(output_file);
+        
+        }
+
+        list_free(label_list);
+        list_free(command_list);
+        list_free(memory_map);
         free(read_string);
 
 
@@ -122,9 +139,6 @@ int main(int argc, char **argv) {
 
 
 
-
-
-// TIRAR STDIO.H DA LIST
 
 
 /*

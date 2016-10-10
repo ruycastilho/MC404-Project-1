@@ -10,7 +10,6 @@
 #include "as_routines.h"
 #include "list.h"
 #include <stdlib.h>
-#include <errno.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
@@ -30,30 +29,32 @@ typedef enum {
 
 /* 
 	Function: Performs first run through the code, thus creates the label list;
-    Param: Command and label list;
+    Param: Pointers to command list, label list and memory map (NULL in this case, 
+           used in other functions) and pointer to output file, if the latter exists;
 
     Return: True if error ocurred during analysis. False, if not.
 */
-bool first_analysis(List command_list, List label_list);
+bool first_analysis(List command_list, List label_list, List memory_map, FILE* output_file);
 
 /* 
 	Function: Stores a new label and its address;
     Param: String containing label, label list, 'address' and 
-            'side' integers, pointer to both 'line' integer and boolean error flag;
+            'side' integers, pointers to both 'line' integer, boolean error flag,
+            and output file;
 
     Return: None.
 */
-void label_treatment(char* label, List list, int address, int side, int* line, bool* error_ocurred);
+void label_treatment(char* label, List list, int address, int side, int* line, bool* error_ocurred, FILE* output_file);
 
 
 /* 
 	Function: Identifies instructions;
     Param: String containing instruction, pointer to both memory map and label lists, pointers to 'address',
-            'side' and 'line' integers and to boolean error flag;
+            'side' and 'line' integers and to boolean error flag, pointer to output file;
 
     Return: None.
 */
-void instruction_treatment(char* instruction, List memory_map, List label_list, int* address, int* side, int* line, bool* error_ocurred) ;
+void instruction_treatment(char* instruction, List memory_map, List label_list, int* address, int* side, int* line, bool* error_ocurred, FILE* output_file);
 
 
 /* 
@@ -85,29 +86,31 @@ int dec_treatment(char* macro);
 
 /* 
 	Function: Identifies and treats directives;
-    Param: String containing directives, pointers to 'address'
-            'side' integer and to boolean error flag;
+    Param: String containing directives, pointers to memory map(null if not used)
+           and label lists, pointers to 'address' and 'side' integer and to 
+           boolean error flag, pointer to output_file;
 
     Return: None.
 */
-void directive_treatment(char* directive, List label_list, int *address, int *side, int *line, bool* error_ocurred);
+void directive_treatment(char* directive, List memory_map, List label_list, int *address, int *side, int *line, bool* error_ocurred, FILE* output_file);
 
 
 /* 
 	Function: Performs second run through the code, thus creates the label list;
-    Param: Command list;
+    Param: Pointers to command list, label list, memory map list and pointer to 
+           output file, if the latter exists;
 
     Return: True if error ocurred during analysis. False, if not.
 */
-bool second_analysis(List command_list, List label_list, List memory_map);
+bool second_analysis(List command_list, List label_list, List memory_map, FILE* output_file);
 
 /* 
 	Function: Prints memory map either in stdout or in a output file;
-    Param: Pointer to memory map list, string containing name of the output
-           file or NUll if map should be printed in stdout;
+    Param: Pointer to memory map list, output file or NUll if map should 
+    be printed in stdout;
            
     Return: None.
 */
-void print_map(List memory_map, char* output_file_name);
+void print_map(List memory_map, FILE* output_file);
 
 #endif

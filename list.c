@@ -180,9 +180,31 @@ List createList() {
 }
 
 
+/* 
+	Function: Releases allocated memory occupied by a list;
+    Param: Pointer to head node of a list;
 
+    Return: None.
+*/
+void list_free(List list) {
 
+    if ( list == NULL ) {
+        return;
 
+    }
+
+    if ( list->next == NULL ) {
+        free(list);
+
+    }
+
+    else {
+        list_free(list->next);
+        free(list);
+
+    }
+
+}
 
 /* ------------------------------------ */
 
