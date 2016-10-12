@@ -21,6 +21,7 @@ bool first_analysis(List command_list, List label_list, List memory_map, FILE* o
 	char *code;
 	
 	bool should_end;
+	bool should_skip;
 	bool error_ocurred = false;
 
 	int line = 1;
@@ -36,23 +37,29 @@ bool first_analysis(List command_list, List label_list, List memory_map, FILE* o
 			code = current_node->strings[i];
 			
 
-
+            should_skip = false;
 			// Checks the characters in a string
-			for(int j=0; j < (COMMAND_SIZE - 1) && should_end == false  ;j++) {
-	
+			for(int j=0; j < (COMMAND_SIZE - 1) && should_end == false && should_skip == false && code != NULL ;j++) {
+
+                while ( code[j] == ' ' ) {
+                    j = j + 1;
+
+                }
+
 				// If it is a directive
 				if ( code[j] == '.' ) {
 					directive_treatment(code, memory_map, label_list, &address, &side, &line, &error_ocurred, output_file);
 					should_end = true;
 					
-	//printf("entered directive if\n");
+	printf("entered directive if\n");
 
 				}
 
 				// If it is a label
 				else if ( code[j] == ':' ) {
-	//printf("entered label if\n");
+	printf("entered label if\n");
 					label_treatment(code, label_list, address, side, &line, &error_ocurred, output_file);
+					should_skip = true;
 					
 				}
                 
@@ -62,11 +69,10 @@ bool first_analysis(List command_list, List label_list, List memory_map, FILE* o
 				
 				}
 
-
 				// If it is a command
-				else if ( code[j] == ' ' ) {
+				else if ( ( code[j] == ' ' || code[j] == '\n') && j != 0 ) {
 					should_end = true;
-	//printf("entered instruction if\n");
+	printf("entered instruction if\n");
 					if ( side == LEFT ) {
 						side = RIGHT;
 
@@ -172,7 +178,7 @@ void label_treatment(char* label, List list, int address, int side, int* line, b
 */
 void instruction_treatment(char* instruction, List memory_map, List label_list, int* address, int* side, int* line, bool* error_ocurred, FILE* output_file) {
 
-    printf("entrou tratamento de inst\n");
+    //printf("entrou tratamento de inst\n");
 
     // Separates instruction from address
 	int i = 0;
@@ -586,34 +592,36 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
 	do {
 		i = i + 1;
 
-	} while ( directive[i] != ' ' );
+	} while ( directive[i] != ' ' && directive[i] != '\n' && directive[i] != '\0' );
 
 	directive[i] = '\0';
 
-
-
+    printf("direc: %s\n", directive);
+    
 	// Separates the first argument
 	macro1 = &directive[i+1];
 
 	// Separates the second argument
-	int j=i;
+	int j=0;
 	do {
 		j = j + 1;
 
-	} while ( directive[j] != ' ' );
+	} while ( macro1[j] != ' ' && macro1[j] != '\n' && macro1[j] != '\0' );
 
-	directive[j] = '\0';
+	macro1[j] = '\0';
+    printf("macro 1: %s\n", macro1);
+
 
 	macro2 = &directive[j+1];
-
+    printf("macro 2: %s\n", macro2);
 	// Puts '\0' in the end of macro2
-	int k=j;
+	int k=0;
 	do {
 		k = k + 1;
 
-	} while ( directive[k] != ' ' );
+	} while ( macro2[k] != ' ' );
 
-	directive[k] = '\0';
+	macro2[k] = '\0';
 
 
 	int directive_argument = 0;
@@ -744,6 +752,23 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
 	// wordfill
 	else if ( strcmp(directive, ".wfill") == 0 ) {
 
+        if ( *side == RIGHT ) {
+
+            if ( output_file == NULL ) {
+            	fprintf(stdout, "%s %d%s", "ERROR on line ", *line, "\nword cannot be placed on the right side!\n");         
+            
+            }
+            else {
+            	fprintf(output_file, "%s %d%s", "ERROR on line ", *line, "\nword cannot be placed on the right side!\n");               
+
+
+            }
+
+            *(error_ocurred) = true;
+            return;
+
+        }
+
         // Initially, checks the first argument (decimal) for errors
         int word_quantity = dec_treatment(macro1);
 
@@ -753,11 +778,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
 
             
             if ( output_file == NULL ) {
-            	fprintf(stdout, "%s %d%s %s %s", "ERROR on line ", *line, "\n", macro1, "is not a valid decimal number!\n");         
+            	fprintf(stdout, "%s %d%s %s %s", "ERROR on line ", *line, "\n", macro1, "is not a valid amount of words!\n");         
             
             }
             else {
-                fprintf(output_file, "%s %d%s %s %s", "ERROR on line ", *line, "\n", macro1,  "is not a valid decimal number!\n");        
+                fprintf(output_file, "%s %d%s %s %s", "ERROR on line ", *line, "\n", macro1,  "is not a valid amount of words!\n");        
 
 
             }
@@ -835,6 +860,7 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
                         directive_argument = found_label->integers[0];    
                     }
                 
+                }
                 else {
                 
                     if ( output_file == NULL ) {
@@ -856,13 +882,21 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
 
         
         }
-        // If second analysis is running
-       // if ( memory_map != NULL ) {
-            //list_insert_sorted(memory_map, NULL, NULL, NULL, *(address), *(side), numerical_address);        
-        
-       // }
+        if ( memory_map != NULL ) {
 
-        *(address) = *(address) + word_quantity;
+            char formatted_word[11];
+            sprintf(formatted_word, "%.10X", directive_argument);                            
+
+	        printf("HEX %s MAP ADDRESS %d SIDE %d HEX ADR %d\n\n", formatted_word, *(address), *(side), -1);
+            for(int l=0; l < word_quantity ;l++) { 
+
+                list_insert_sorted(memory_map, formatted_word, NULL, NULL, *(address), *(side), -1);        
+                *(address) = *(address) + 1;     
+            }
+    
+        }
+
+
 
     }
 
@@ -872,7 +906,24 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
 
 	// word
 	else if ( strcmp(directive, ".word") == 0 ) {
-        
+
+        if ( *side == RIGHT ) {
+
+            if ( output_file == NULL ) {
+            	fprintf(stdout, "%s %d%s", "ERROR on line ", *line, "\nword cannot be placed on the right side!\n");         
+            
+            }
+            else {
+            	fprintf(output_file, "%s %d%s", "ERROR on line ", *line, "\nword cannot be placed on the right side!\n");               
+
+
+            }
+
+            *(error_ocurred) = true;
+            return;
+
+        }
+
         // Hexadecimal argument
         if ( macro1[0] == '0' && macro1[1] == 'x' ) {
             directive_argument = hex_treatment(macro2);
@@ -963,10 +1014,15 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
         }
 
         // If second analysis is running
-       // if ( memory_map != NULL ) {
-            //list_insert_sorted(memory_map, NULL, NULL, NULL, *(address), *(side), numerical_address);        
+        if ( memory_map != NULL ) {
+            char formatted_word[11];
+            sprintf(formatted_word, "%.10X", directive_argument);
+            
+
+	        printf("HEX %s MAP ADDRESS %d SIDE %d HEX ADR %d\n\n", formatted_word, *(address), *(side), -1);
+            list_insert_sorted(memory_map, formatted_word, NULL, NULL, *(address), *(side), -1);        
         
-       // }
+        }
 
 
         *(address) = *(address) + 1;
@@ -1025,7 +1081,7 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
 
         // Repairs separated string
 		directive[i] = ' ';
-		directive[j] = ' ';
+		macro1[j] = ' ';
 }
 
 
@@ -1054,6 +1110,7 @@ bool second_analysis(List command_list, List label_list, List memory_map, FILE* 
 	char *code;
 	
 	bool should_end;
+	bool should_skip;
 	bool error_ocurred = false;
 
 	int line = 1;
@@ -1068,10 +1125,17 @@ bool second_analysis(List command_list, List label_list, List memory_map, FILE* 
 		for(int i=0; i < STRING_NUMBER && error_ocurred == false && should_end == false ;i++) {
 			code = current_node->strings[i];
 
-			// Checks the characters in a string
-			for(int j=0; j < (COMMAND_SIZE - 1) && should_end == false  ;j++) {
+		    should_skip = false;
 
-					printf("antess %s\n", code);
+			// Checks the characters in a string
+			for(int j=0; j < (COMMAND_SIZE - 1) && should_end == false && should_skip == false && code != NULL ;j++) {
+
+                while ( code[j] == ' ' ) {
+                    j = j + 1;
+
+                }
+
+	//printf("comando:%s\n", code);
 				// If it is a directive
 				if ( code[j] == '.' ) {
 					directive_treatment(code, label_list, memory_map, &address, &side, &line, &error_ocurred, output_file);
@@ -1081,20 +1145,19 @@ bool second_analysis(List command_list, List label_list, List memory_map, FILE* 
 
 				// If it is a label
 				else if ( code[j] == ':' ) {
-					should_end = true;
+					should_skip = true;
 
 				}
 
 				else if ( code[j] == '#' ) {
 			        should_end = true;
-			        
 				
 				}
 				
 				// If it is a command
 				else if ( ( code[j] == ' ' || code[j] == '\n') && j != 0 ) {
 					should_end = true;
-					printf("\nola %s\n", code);
+
 					instruction_treatment(code, memory_map, label_list, &address, &side, &line, &error_ocurred, output_file);
 
 					if ( side == LEFT ) {
@@ -1150,9 +1213,10 @@ void print_map(List memory_map, FILE* output_file) {
         while ( current_node != NULL ) {
         
             current_side = current_node->integers[1];
- 
+
+            printf("flaggg %d\n", current_node->integers[2] ); 
             // If it is on the left side
-            if (  current_side == LEFT  ) {
+            if (  current_side == LEFT && current_node->integers[2] > 0 ) {
 
                 // If right side is empty
                 if ( past_side == LEFT ) {
@@ -1160,21 +1224,32 @@ void print_map(List memory_map, FILE* output_file) {
 
                 }
 
-                fprintf(stdout, "%03X %s %03X", current_node->integers[0], current_node->strings[0], current_node->integers[2]);
+                fprintf(stdout, "%.03X %s %.03X", current_node->integers[0], current_node->strings[0], current_node->integers[2]);
 
 
             }
             
             // If it is on the right side
-            else {
+            else if ( current_node->integers[2] > 0 ) {
             
-                fprintf(stdout, " %s %03X\n", current_node->strings[0], current_node->integers[2]);
+                fprintf(stdout, " %s %.03X\n", current_node->strings[0], current_node->integers[2]);
 
             
             
             
             
             }
+            
+            else {
+
+                fprintf(stdout, "%.3X %.2s %.2s %.2s %.2s %.2s", current_node->integers[0], current_node->strings[0], 
+                        (current_node->strings[1]) + 2, (current_node->strings[1]) + 4, (current_node->strings[1]) + 6,
+                        (current_node->strings[1]) + 8);
+            
+ 
+            
+            }
+
             current_node = current_node->next;
             past_side = current_side;
             
@@ -1190,7 +1265,7 @@ void print_map(List memory_map, FILE* output_file) {
             current_side = current_node->integers[1];
  
             // If it is on the left side
-            if (  current_side == LEFT  ) {
+            if (  current_side == LEFT && current_node->integers[2] > 0 ) {
 
                 // If right side is empty
                 if ( past_side == LEFT ) {
@@ -1198,22 +1273,31 @@ void print_map(List memory_map, FILE* output_file) {
 
                 }
 
-                fprintf(output_file, "%03X %s %03X", current_node->integers[0], current_node->strings[0], current_node->integers[2]);
+                fprintf(output_file, "%.3X %s %.3X", current_node->integers[0], current_node->strings[0], current_node->integers[2]);
 
 
             }
             
             // If it is on the right side
-            else {
+            else if ( current_node->integers[2] > 0 ) {
             
-                fprintf(output_file, "%s %03X", current_node->strings[0], current_node->integers[2]);
+                fprintf(output_file, "%s %.3X", current_node->strings[0], current_node->integers[2]);
 
             
             
             
             
             }
-
+            
+            else {    
+                fprintf(stdout, "%.3X %.2s %.2s %.2s %.2s %.2s", current_node->integers[0], current_node->strings[0], 
+                        (current_node->strings[1]) + 2, (current_node->strings[1]) + 4, (current_node->strings[1]) + 6,
+                        (current_node->strings[1]) + 8);
+            
+ 
+            
+            }
+            
             past_side = current_side;
             current_node = current_node->next;
 

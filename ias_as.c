@@ -37,12 +37,19 @@ int main(int argc, char **argv) {
 
         List command_list = createList();
 
+		int j;
         // File is read while EOF isnt reached
         while ( fgets(read_string, LINE_SIZE ,input_file) != NULL) {
 
+            printf("RS || %s\n", read_string);
         	// Content analysis. Only reads 2 strings, since comments are ignored
-		    int j = 0;
-			for(int i=0; i < COMMAND_NUMBER - 1 && read_string[j] != '\0'; i++) {
+
+            j = 0;
+            string_marks[0] = NULL;
+            string_marks[1] = NULL;
+            string_marks[2] = NULL;                       
+                                 
+			for(int i=0; i < COMMAND_NUMBER - 1 && read_string[j] != '\0' ; i++) {
 
 			    // Skipping spaces and tabs
 		    	while ( read_string[j] == ' ' || read_string[j] == '\t' ) {
@@ -55,20 +62,23 @@ int main(int argc, char **argv) {
 
 
 			    // Reaching the next space between commands
-		    	while ( read_string[j] != ' ' && read_string[j] != '\t' && read_string[j] != '\n' && read_string != '\0') {
+		    	while ( read_string[j] != ' ' && read_string[j] != '\t' && read_string[j] != '\n' && read_string[j] != '\0') {
 		    		j = j + 1;
 				}
 
-                if ( strcmp(string_marks[i], "") == 0 ) {
+                if ( strcmp(string_marks[i], "\n") == 0 || strcmp(string_marks[i], "\0") == 0 || strcmp(string_marks[i], " ") == 0 || strcmp(string_marks[i], "\t") == 0 ) {
                     string_marks[i] = NULL;
 
                 }
 			}
 
-            printf("%s", string_marks[0]);
-            // Inserts commands in command list
-			list_insert(command_list, string_marks[0], string_marks[1], NULL, 0, 0, 0);
-	
+            printf("\ninicio %s ||| %s ||| %s \n fim \n", string_marks[0], string_marks[1], string_marks[2]);
+            
+            if ( string_marks[0] != NULL || string_marks[1] != NULL || string_marks[2] != NULL ) { 
+                // Inserts commands in command list
+			    list_insert(command_list, string_marks[0], string_marks[1], NULL, 0, 0, 0);
+	        
+	        }
 
         }
 
@@ -122,7 +132,6 @@ int main(int argc, char **argv) {
         free(read_string);
 
 
-        
 
     }
     
