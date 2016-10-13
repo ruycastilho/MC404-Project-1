@@ -74,11 +74,10 @@ int main(int argc, char **argv) {
 
             printf("\ninicio %s ||| %s ||| %s \n fim \n", string_marks[0], string_marks[1], string_marks[2]);
             
-            if ( string_marks[0] != NULL || string_marks[1] != NULL || string_marks[2] != NULL ) { 
-                // Inserts commands in command list
-			    list_insert(command_list, string_marks[0], string_marks[1], NULL, 0, 0, 0);
+            // Inserts commands in command list
+		    list_insert(command_list, string_marks[0], string_marks[1], NULL, 0, 0, 0);
 	        
-	        }
+
 
         }
 
