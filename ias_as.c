@@ -10,7 +10,7 @@
 #include "as_routines.h"
 
 // DEFINES
-#define LINE_SIZE 100
+#define LINE_SIZE 150
 #define COMMAND_NUMBER 3
 
 /* 
@@ -34,9 +34,7 @@ int main(int argc, char **argv) {
         List command_list = createList();
 
         // File is read while EOF isnt reached
-        while ( fgets(read_string, LINE_SIZE ,input_file) != NULL) {
-
-            //printf("RS || %s\n", read_string);
+        while ( fgets(read_string, LINE_SIZE ,input_file) != NULL) {            
         	// Content analysis. Only reads 2 strings, since comments are ignored                     
 
             //printf("\ninicio ||| %s ||| fim \n", read_string);
@@ -52,11 +50,16 @@ int main(int argc, char **argv) {
         fclose(input_file);
 
         // Creates and opens output file, if necessary
-        char *output_file_name = argv[2];
+        char *output_file_name = NULL;
         FILE *output_file = NULL;
+        
+        if ( argc == 3 ) {
+            output_file_name = argv[2];
+
+        }
 
         if ( output_file_name != NULL ) {
-            fopen("output_file_name", "w");
+            output_file = fopen(output_file_name, "w");
 
         }
 
@@ -67,26 +70,25 @@ int main(int argc, char **argv) {
         bool error_ocurred = first_analysis(command_list, label_list, NULL, output_file);
 
         // Finishes if an error ocurred
-        if ( error_ocurred == true ) {
-            return 0;
+        if ( error_ocurred == false ) { 
         
+            List memory_map = createList();
+
+            // Runs second analysis
+            error_ocurred = second_analysis(command_list, label_list, memory_map, output_file);
+
+            // Finishes if an error ocurred
+            if ( error_ocurred == false ) {
+            
+                // Prints memory map
+                print_map(memory_map, output_file);
+
+            }
+ 
+            // Memory release 
+            list_free(memory_map);
+  
         }
-
-
-        List memory_map = createList();
-
-        // Runs second analysis
-        error_ocurred = second_analysis(command_list, label_list, memory_map, output_file);
-
-        // Finishes if an error ocurred
-        if ( error_ocurred == true ) {
-            return 0;
-
-        }
-
-
-        // Prints memory map
-        print_map(memory_map, output_file);
 
         // Memory release
         if ( output_file != NULL ) {
@@ -96,7 +98,6 @@ int main(int argc, char **argv) {
 
         list_free(label_list);
         list_free(command_list);
-        list_free(memory_map);
         free(read_string);
 
 
@@ -112,22 +113,3 @@ int main(int argc, char **argv) {
 	return 0;
 
 }
-
-
-
-
-
-/*
-
-Fazer os passos como apresentado nos slides.
-Só fazer o mapa de memoria se for certificado que a primeira passagem pelo assembly deu certo.
-
-
-Por as linhas na lista, cada trecho em 1 string.
-mandar pra funcao adequada
-
-
-
-
-
-*/

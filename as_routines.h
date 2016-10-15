@@ -17,7 +17,7 @@
 
 // DEFINES
 #define COMMAND_SIZE 65 // 64 characters + eventual '\0'
-#define MAX_MEMORY 1024
+#define MAX_MEMORY 1023
 
 // Enum used to identify sides
 typedef enum {
@@ -36,6 +36,17 @@ typedef enum {
     Return: True if error ocurred during analysis. False, if not.
 */
 bool first_analysis(List command_list, List label_list, List memory_map, FILE* output_file);
+
+
+/* 
+	Function: Treats line, checking if elements are in valid order;
+    Param: String pointing to the end of a instruction/directive, pointers to 
+           integer input text line, boolean error flag, and output_file;
+
+    Return: None.
+*/
+bool line_treatment(char* end_line, int* line, bool* error_ocurred, FILE* output_file);
+
 
 /* 
 	Function: Stores a new label and its address;
