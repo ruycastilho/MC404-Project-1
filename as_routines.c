@@ -18,14 +18,13 @@ bool first_analysis(List command_list, List label_list, List memory_map, FILE* o
 
 	node *current_node = command_list->next;
 
+    int j;
+
 	char *code;
 	
-	bool should_skip;
 	bool error_ocurred = false;
-    bool is_comment;
-    bool used_label;
-    bool used_instruction;
-    bool used_directive;
+    bool is_label;
+    bool should_end = false;
 
 	int line = 1;
 	int address = 0;
@@ -34,117 +33,103 @@ bool first_analysis(List command_list, List label_list, List memory_map, FILE* o
 	// Runs through the list
 	while ( current_node != NULL && error_ocurred == false && address <= MAX_MEMORY ) {
 
-        is_comment = false;
-		// Checks all the strings in a node
-		for(int i=0; i < STRING_NUMBER && error_ocurred == false  && is_comment == false ;i++) {
-			code = current_node->strings[i];
-			
-            used_label = false;
-            used_instruction = false;
-            used_directive = false;
-            should_skip = false;
-			// Checks the characters in a string
-			for(int j=0; code[j] != '\0' && should_skip == false && is_comment == false  && code != NULL ;j++) {
+        j = 0;
+        code = current_node->strings[0];
 
-                while ( code[j] == ' '  ) {
+        while ( isspace(code[j]) ) {
+            j = j + 1;
+
+        }
+        
+        code = &(code[j]);
+        current_node->strings[0] = code;
+        j = 0;
+
+       	should_end = false;
+		// Checks the characters in a string
+		while ( code[j] != '\0' && should_end == false && code != NULL && error_ocurred == false ) {
+            is_label = false;
+		// printf("comando: %s\n", code);
+
+
+			// If it is a directive
+			if ( code[j] == '.' ) {
+			//printf("entered directive if\n");
+			 //  printf("comando: %s\n", &(code[j]));
+		        should_end = true;
+                directive_treatment(&(code[j]), memory_map, label_list, &address, &side, &line, &error_ocurred, output_file);
+
+			}
+
+			// If it is a label
+			else if ( code[j] == ':' ) {
+//printf("entered label if\n");
+  // printf("comando: %s\n", &(code[j]));
+
+         		label_treatment(code, label_list, address, side, &line, &error_ocurred, output_file);  
+
+                // Deletes label from string, since it is not used anymore
+                j = j + 1;  
+                while ( code[j] == ' ' || code[j] == '\t' ) {
                     j = j + 1;
 
                 }
-
-				// If it is a directive
-				if ( code[j] == '.' ) {
-				
-			        if ( used_directive == true || used_instruction == true ) {
-		                error_ocurred = true;
-
-				    }
-
-                    else {
-                    
-                        directive_treatment(code, memory_map, label_list, &address, &side, &line, &error_ocurred, output_file);
-					    used_directive = true;  
-                    
-                    }
-
-	printf("entered directive if\n");
-
-				}
-
-				// If it is a label
-				else if ( code[j] == ':' ) {
-	printf("entered label if\n");
-	
-			        if ( used_directive == true || used_instruction == true || used_label == true ) {
-		                error_ocurred = true;
-
-				    }
-                    else {
-                    
-                 		label_treatment(code, label_list, address, side, &line, &error_ocurred, output_file);
-					    should_skip = true;       
-                    
-                    }
-
-					
-				}
                 
-				else if ( code[j] == '#' ) {
-			        is_comment = true;
-			        
+                code = &(code[j]);
+                current_node->strings[0] = code;
+
+                is_label = true;
+                j = 0;
+			  //printf("new comando:%s\n", code);	
+			}
+            
+			else if ( code[j] == '#' ) {
+		        should_end = true;
+		        
+			
+			}
+
+			// If it is a command
+			else if ( isspace(code[j]) && j != 0 && code[j-1] != ':' && !( isspace(code[j-1]) ) ) {
+//printf("entered instruction if, char:%c:j:%d\n", code[j], j);
+   printf("instrucao comando: %s\n", code);
+ 		        should_end = true;
+				instruction_treatment(code, NULL, label_list, &address, &side, &line, &error_ocurred, output_file);
+
+			    if ( side == LEFT ) {
+				    side = RIGHT;
+
+			    }
+			    else {
+				    address = address + 1;
+				    side = LEFT;
 				
-				}
+			    }
 
-				// If it is a command
-				else if ( code[j] == '"' ||  code[j] == ' ' || code[j] == '\n' ) {
-				
-
-				    used_instruction = true;
-    printf("entered instruction if\n");
-				    if ( side == LEFT ) {
-					    side = RIGHT;
-
-				    }
-				    else {
-					    address = address + 1;
-					    side = LEFT;
-					
-				    }				    
-				    
-
-				}
-
+			}
+			
+		    if ( is_label == false ) {
+                j = j + 1;
+		    
 		    }
+                
 
-		}
+        }
+
 
         if ( error_ocurred == false ) {
       		line = line + 1;
 		    current_node = current_node->next;      
         
         }
-		
+
 	}
 
 	//     POR OS FREES   free(read_string);
 
 
-    if ( error_ocurred == true ) {
-
-        if ( output_file == NULL ) {
-        	fprintf(stdout, "%s %d %s", "ERROR on line", line,  "\nInvalid line input!\n");         
-        
-        }
-        else {
-            fprintf(output_file, "%s %d %s", "ERROR on line", line,  "\nInvalid line input!\n");         
-
-
-        }
-
-
-    }
-
     // If IAS' memory capacity is not enough
-    else if ( address > MAX_MEMORY ) {
+    if ( address > MAX_MEMORY ) {
         error_ocurred = true;
         
         if ( output_file == NULL ) {
@@ -162,6 +147,45 @@ bool first_analysis(List command_list, List label_list, List memory_map, FILE* o
 	return error_ocurred;
 
 }
+
+/* 
+	Function: Treats line, checking if elements are in valid order;
+    Param: String pointing to the end of a instruction/directive, pointers to 
+           integer input text line, boolean error flag, and output_file;
+
+    Return: None.
+*/
+bool line_treatment(char* end_line, int* line, bool* error_ocurred, FILE* output_file) {
+
+    int i = 0;
+
+    // Reaches non-space char, if necessary
+    while (  end_line != '\0' && isspace(end_line[i]) ) {
+        i = i + 1;
+
+    }
+
+
+    if ( end_line[i] != '\0' && end_line[i] != '#' ) {
+        *(error_ocurred) = true;
+
+        if ( output_file == NULL ) {
+        	fprintf(stdout, "%s %d %s", "ERROR on line", *(line),  "\nInvalid line input!\n");         
+        
+        }
+        else {
+            fprintf(output_file, "%s %d %s", "ERROR on line", *(line),  "\nInvalid line input!\n");         
+
+
+        }
+        return false;
+
+    }
+
+    return true;
+
+}
+
 
 
 /* 
@@ -203,7 +227,6 @@ void label_treatment(char* label, List list, int address, int side, int* line, b
     // Checks if label is valid
     if ( sym_treatment(label) == true ) {
 
-         printf("addr: %d\n", address);
         // If it isn't already stored, inserts it in the list
         if ( list_search_string1(list, label) == NULL ) {
             list_insert(list, label, NULL, NULL, address, side, 0);
@@ -216,11 +239,11 @@ void label_treatment(char* label, List list, int address, int side, int* line, b
     else {
 
         if ( output_file == NULL ) {
-        	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", label, "is not a valid sym argument!\n");         
+        	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", label, "is not a valid sym argument!\n");         
         
         }
         else {
-            fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", label,  "is not a valid sym argument!\n");         
+            fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", label,  "is not a valid sym argument!\n");         
 
 
         }
@@ -253,36 +276,46 @@ void instruction_treatment(char* instruction, List memory_map, List label_list, 
 	do {
 		i = i +1;
 
-	} while ( instruction[i] != ' ' && instruction[i] != '\n' && instruction[i] != '\0');
+	} while ( !isspace(instruction[i]) );
+
 	instruction[i] = '\0';
-    
 
     // Instruction address data
-    char *inst_address;
+    char *inst_address = NULL;
     int numerical_address = 0;
+    
     
     // Address information to determine correct instructions(JMP, JMP+, STaddr)
     int inst_side = LEFT;
 
+    int j = i;
+    // Reaches non-space char
+	do {
+		j = j + 1;
 
-    // If there is no argument, it is not needed. So, it is stored as 0.
-    i = i + 1;
-    if ( instruction[i] == '\0' || instruction[i] == '\n') {
-        inst_address = NULL;
-        numerical_address = 0;
+	} while ( isspace(instruction[j]) );
+
+ //  printf("instruc:%s\n", instruction);
     
-    }
+    inst_address = &instruction[j+1];
+ 
+    // If there is an argument, obtains the string cointaining the address
+    if ( instruction[j] == '"' ) {
+    
 
-    // Obtains the string cointaining the address
-    else {
-        inst_address = &instruction[i+1];
-
-        i = 1;
-	    while ( inst_address[i] != '\"' ) {
-		    i = i +1;
+        j = 0;
+	    while ( inst_address[j] != '\"' ) {
+		    j = j + 1;
 
 	    }
-        inst_address[i] = '\0';
+   // printf("instruc add:%s\n", &(inst_address[i]));
+	    // Checks if line elements are valid
+	    if ( line_treatment(&(inst_address[j + 1]), line, error_ocurred, output_file) == false ) {
+	        return;
+	
+	    }
+
+        inst_address[j] = '\0';
 
 
         // Hexadecimal argument
@@ -293,11 +326,11 @@ void instruction_treatment(char* instruction, List memory_map, List label_list, 
             if ( numerical_address < 0 ) {
             
                 if ( output_file == NULL ) {
-                	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", inst_address, "is not a valid hex number!\n");         
+                	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", inst_address, "is not a valid hex number!\n");         
                 
                 }
                 else {
-                    fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", inst_address,  "is not a valid hex number!\n");          
+                    fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", inst_address,  "is not a valid hex number!\n");          
 
 
                 }
@@ -315,11 +348,11 @@ void instruction_treatment(char* instruction, List memory_map, List label_list, 
             // If error ocurred
             if ( numerical_address < 0 ) {
                 if ( output_file == NULL ) {
-                	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", inst_address, "is not a valid decimal number!\n");         
+                	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", inst_address, "is not a valid decimal number!\n");         
                 
                 }
                 else {
-                    fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", inst_address,  "is not a valid decimal number!\n");          
+                    fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", inst_address,  "is not a valid decimal number!\n");          
 
 
                 }
@@ -336,11 +369,11 @@ void instruction_treatment(char* instruction, List memory_map, List label_list, 
 
             if ( label == NULL ) {
                 if ( output_file == NULL ) {
-                	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", inst_address, "is not a valid label!\n");         
+                	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", inst_address, "is not a valid label!\n");         
                 
                 }
                 else {
-                    fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", inst_address,  "is not a valid label!\n");          
+                    fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", inst_address,  "is not a valid label!\n");          
 
 
                 }
@@ -359,140 +392,219 @@ void instruction_treatment(char* instruction, List memory_map, List label_list, 
 	    }
     }
 
-    printf("instruc %s\n", instruction);
-    // Obtains hexadecimal equivalent of the instruction
+    // If there is no argument, it is not needed. So, it is stored as 0.
+    else {
+        numerical_address = 0;
+
+        // Checks if line elements are valid
+	    if ( line_treatment(&(inst_address[j]), line, error_ocurred, output_file) == false ) {
+            return;
+
+        }
+        inst_address = NULL;
+    }
+
+
+
+// Obtains hexadecimal equivalent of the instruction
     char *hex_equivalent;
 
-	if ( strcmp (instruction, "LD") == 0 ) {
+    if ( strcmp (instruction, "LD") == 0 ) {
         hex_equivalent = "01";
 
-	}
+    }
 
-	else if ( strcmp (instruction, "LD-") == 0 ) {
+    else if ( strcmp (instruction, "LD-") == 0 ) {
         hex_equivalent = "02";
 
-	}
+    }
 
-	else if ( strcmp (instruction, "LD|") == 0 ) {
+    else if ( strcmp (instruction, "LD|") == 0 ) {
         hex_equivalent = "03";
 
-	}
+    }
 
-	else if ( strcmp (instruction, "LDmq") == 0 ) {
+    else if ( strcmp (instruction, "LDmq") == 0 ) {
         hex_equivalent = "0A";
 
-	}
+        if ( inst_address != NULL ) {
+        
+            if ( output_file == NULL ) {
+            	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", instruction, "should not have a memory address!\n");         
+            
+            }
+            else {
+                fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", instruction,  "should not have a memory address!\n");          
 
-	else if ( strcmp (instruction, "LDmq_mx") == 0 ) {
+
+            }
+            
+            *(error_ocurred) = true;
+            return;
+        
+        }
+
+    }
+
+    else if ( strcmp (instruction, "LDmq_mx") == 0 ) {
         hex_equivalent = "09";
 
-	}
+    }
 
-	else if ( strcmp (instruction, "ST") == 0 ) {
+    else if ( strcmp (instruction, "ST") == 0 ) {
         hex_equivalent = "21";
 
-	}
+    }
 
-	else if ( strcmp (instruction, "JMP") == 0 ) {
-	
-	    if (inst_side == LEFT) {
-	        hex_equivalent = "0D";
-	    
-	    }
+    else if ( strcmp (instruction, "JMP") == 0 ) {
 
-        else {
-	        hex_equivalent = "0E";
+        if (inst_side == LEFT) {
+            hex_equivalent = "0D";
         
         }
 
-	}
-
-	else if ( strcmp (instruction, "JUMP+") == 0 ) {
-
-	    if (inst_side == LEFT) {
-	        hex_equivalent = "0F";
-	    
-	    }
-
         else {
-	        hex_equivalent = "10";
+            hex_equivalent = "0E";
         
         }
 
-	}
+    }
 
-	else if ( strcmp (instruction, "ADD") == 0 ) {
+    else if ( strcmp (instruction, "JUMP+") == 0 ) {
+
+        if (inst_side == LEFT) {
+            hex_equivalent = "0F";
+        
+        }
+
+        else {
+            hex_equivalent = "10";
+        
+        }
+
+    }
+
+    else if ( strcmp (instruction, "ADD") == 0 ) {
         hex_equivalent = "05";
 
-	}
+    }
 
-	else if ( strcmp (instruction, "ADD|") == 0 ) {
+    else if ( strcmp (instruction, "ADD|") == 0 ) {
         hex_equivalent = "07";
 
-	}
+    }
 
-	else if ( strcmp (instruction, "SUB") == 0 ) {
+    else if ( strcmp (instruction, "SUB") == 0 ) {
         hex_equivalent = "06";
 
-	}
+    }
 
-	else if ( strcmp (instruction, "SUB|") == 0 ) {
+    else if ( strcmp (instruction, "SUB|") == 0 ) {
         hex_equivalent = "08";
 
-	}
+    }
 
-	else if ( strcmp (instruction, "MUL") == 0 ) {
+    else if ( strcmp (instruction, "MUL") == 0 ) {
         hex_equivalent = "0B";
 
-	}
+    }
 
-	else if ( strcmp (instruction, "DIV") == 0 ) {
+    else if ( strcmp (instruction, "DIV") == 0 ) {
         hex_equivalent = "0C";
 
-	}
+    }
 
-	else if ( strcmp (instruction, "LSH") == 0 ) {
+    else if ( strcmp (instruction, "LSH") == 0 ) {
         hex_equivalent = "14";
 
-	}
 
-	else if ( strcmp (instruction, "RSH") == 0 ) {
+        if ( inst_address != NULL ) {
+        
+            if ( output_file == NULL ) {
+            	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", instruction, "should not have a memory address!\n");         
+            
+            }
+            else {
+                fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", instruction,  "should not have a memory address!\n");          
+
+
+            }
+            
+            *(error_ocurred) = true;
+            return;
+        
+        }
+
+    }
+
+    else if ( strcmp (instruction, "RSH") == 0 ) {
         hex_equivalent = "15";
 
-	}
+        if ( inst_address != NULL ) {
+        
+            if ( output_file == NULL ) {
+            	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", instruction, "should not have a memory address!\n");         
+            
+            }
+            else {
+                fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", instruction,  "should not have a memory address!\n");          
 
-	else if ( strcmp (instruction, "STaddr") == 0 ) {
-	    if (inst_side == LEFT) {
-	        hex_equivalent = "12";
-	    
-	    }
 
-        else {
-	        hex_equivalent = "13";
+            }
+            
+            *(error_ocurred) = true;
+            return;
         
         }
 
-	}
 
-	else {
+    }
+
+    else if ( strcmp (instruction, "STaddr") == 0 ) {
+        if (inst_side == LEFT) {
+            hex_equivalent = "12";
+        
+        }
+
+        else {
+            hex_equivalent = "13";
+        
+        }
+
+    }
+
+    else {
 
         if ( output_file == NULL ) {
-        	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", instruction, "is not a valid mnemonic!\n");         
+        	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", instruction, "is not a valid mnemonic!\n");         
         
         }
         else {
-            fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", instruction,  "is not a valid mnemonic!\n");          
+            fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", instruction,  "is not a valid mnemonic!\n");          
 
 
         }
         
-         return;
-	}
+        *(error_ocurred) = true;
+        return;
+    }
 
-	printf("HEX %s MAP ADDRESS %d SIDE %d HEX ADR %d\n\n", hex_equivalent, *(address), *(side), numerical_address);
+    //printf("HEX %s MAP ADDRESS %d SIDE %d HEX ADR %d\n\n", hex_equivalent, *(address), *(side), numerical_address);
 
-    // Adds instruction to memory map
-    list_insert_sorted(memory_map, hex_equivalent, NULL, NULL, *(address), *(side), numerical_address);
+    // Adds instruction to memory map, if second analysis is running
+    if ( memory_map != NULL ) {
+        list_insert_sorted(memory_map, hex_equivalent, NULL, NULL, *(address), *(side), numerical_address);
+
+    }   
+
+
+    // Repairs separated string
+	instruction[i] = ' ';
+    if ( inst_address != NULL ) {
+        inst_address[j] = '"';
+
+    }
+
 
 }
 
@@ -546,7 +658,6 @@ int hex_treatment(char* macro) {
 	int address = 0;
 	char *end;
     bool is_zero = true;
-        printf("macro: %s\n", macro);
 
     // Checks if size is correct
 	if ( macro[12] == '\0' ) {
@@ -652,18 +763,18 @@ int dec_treatment(char* macro) {
 */
 void directive_treatment(char* directive, List memory_map, List label_list, int *address, int *side, int *line, bool* error_ocurred, FILE* output_file) {
 
-	char *macro1, *macro2;
+	char *macro1 = NULL, *macro2 = NULL;
 
 	// Separates the directive
 	int i=0;
 	do {
 		i = i + 1;
 
-	} while ( directive[i] != ' ' && directive[i] != '\n' && directive[i] != '\0' );
+	} while ( !isspace(directive[i]) );
 
 	directive[i] = '\0';
 
-    printf("direc: %s\n", directive);
+    //printf("direc: %s\n", directive);
     
 	// Separates the first argument
 	macro1 = &directive[i+1];
@@ -673,26 +784,55 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
 	do {
 		j = j + 1;
 
-	} while ( macro1[j] != ' ' && macro1[j] != '\n' && macro1[j] != '\0' );
+	} while ( !isspace(macro1[j]) );
 
 	macro1[j] = '\0';
 
-    printf("macro 1: %s\n", macro1);
-    if ( macro1[j+1] != '\0' ) {
+    //printf("macro 1:%s:\n", macro1);
     
-        macro2 = &macro1[j+1];
-        printf("macro 2: %s\n", macro2);
+    
+    // Reaches second argument, if necessary
+    int k = j + 1;
+	while ( isspace(macro1[k]) ) {
+        k = k + 1;
+
+    }
+
+
+    // In case there's a second argument
+    if ( macro1[k] != '\0' && macro1[k] != '#' ) {
+
+        macro2 = &macro1[k];
+        //printf("macro 2:%s:\n", macro2);
+        
 	    // Puts '\0' in the end of macro2
-	    int k=0;
+	    k = 0;
 	    do {
 		    k = k + 1;
 
-	    } while ( macro2[k] != ' '  && macro2[k] != '\0' && macro2[k] != '\n' );
+	    } while ( !isspace(macro2[k]) && macro2[k] != '\0' );
+
+
+        // Checks if line elements are valid
+	    if ( line_treatment(&(macro2[k]), line, error_ocurred, output_file) == false ) {
+
+            return;
+
+        }
 
 	    macro2[k] = '\0';
-    
+
     }
 
+    // In case of error, calls the line_treatment function, that explicits said error
+    else {
+
+	    if ( line_treatment(&(macro1[k]), line, error_ocurred, output_file) == false ) {
+            return;
+
+        }
+
+    }
 
 	int directive_argument = 0;
 
@@ -704,11 +844,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
         if ( sym_treatment(macro1) == false ) {
 
             if ( output_file == NULL ) {
-            	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1, "is not a valid sym argument!\n");         
+            	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1, "is not a valid sym argument!\n");         
             
             }
             else {
-                fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid sym argument!\n");        
+                fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid sym argument!\n");        
 
 
             }
@@ -726,11 +866,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
             if ( directive_argument < 0 ) {
 		        
                 if ( output_file == NULL ) {
-                	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro2, "is not a valid hex number!\n");         
+                	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro2, "is not a valid hex number!\n");         
                 
                 }
                 else {
-                    fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro2,  "is not a valid hex number!\n");        
+                    fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro2,  "is not a valid hex number!\n");        
 
 
                 }
@@ -750,11 +890,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
             if ( directive_argument < 0 ) {
 	            
                 if ( output_file == NULL ) {
-                	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro2, "is not a valid decimal number!\n");         
+                	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro2, "is not a valid decimal number!\n");         
                 
                 }
                 else {
-                    fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro2,  "is not a valid decimal number!\n");         
+                    fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro2,  "is not a valid decimal number!\n");         
 
 
                 }
@@ -785,11 +925,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
             if ( directive_argument < 0 ) {
 	            
                 if ( output_file == NULL ) {
-                	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1, "is not a valid hex number!\n");         
+                	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1, "is not a valid hex number!\n");         
                 
                 }
                 else {
-                    fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid hex number!\n");
+                    fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid hex number!\n");
 
 
                 }
@@ -810,11 +950,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
             if ( directive_argument < 0 ) {
 	            
                 if ( output_file == NULL ) {
-                	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1, "is not a valid decimal number!\n");         
+                	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1, "is not a valid decimal number!\n");         
                 
                 }
                 else {
-                    fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid decimal number!\n");          
+                    fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid decimal number!\n");          
 
 
                 }
@@ -837,6 +977,8 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
 
 	// wfill
 	else if ( strcmp(directive, ".wfill") == 0 ) {
+
+        bool is_negative = false;
 
         if ( *side == RIGHT ) {
 
@@ -864,11 +1006,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
 
             
             if ( output_file == NULL ) {
-            	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1, "is not a valid amount of words!\n");         
+            	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1, "is not a valid amount of words!\n");         
             
             }
             else {
-                fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid amount of words!\n");        
+                fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid amount of words!\n");        
 
 
             }
@@ -888,11 +1030,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
                 // If error ocurred
                 if ( directive_argument < 0 ) {
                     if ( output_file == NULL ) {
-                    	fprintf(stdout, "%s %d%s %s %s", "ERROR on line ", *line, "\n", macro2, "is not a valid hex number!\n");         
+                    	fprintf(stdout, "%s %d%s%s %s", "ERROR on line ", *line, "\n", macro2, "is not a valid hex number!\n");         
                     
                     }
                     else {
-                        fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro2,  "is not a valid hex number!\n");          
+                        fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro2,  "is not a valid hex number!\n");          
 
 
                     }
@@ -905,18 +1047,25 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
 
             // Decimal argument
             else if ( (int)macro2[0] < 58 && (int)macro2[0] > 47 ) {
-            
+
+                // If number is negative
+		        if ( macro2[0] == '-' ) {
+                    is_negative = true;
+                    macro2 = &(macro2[1]);
+
+                }
+                
                 directive_argument = dec_treatment(macro2);
 
 
                 // If error ocurred
                 if ( directive_argument < 0 ) {
                     if ( output_file == NULL ) {
-                    	fprintf(stdout, "%s %d%s %s %s", "ERROR on line ", *line, "\n", macro2, "is not a valid decimal number!\n");         
+                    	fprintf(stdout, "%s %d%s%s %s", "ERROR on line ", *line, "\n", macro2, "is not a valid decimal number!\n");         
                     
                     }
                     else {
-                        fprintf(output_file, "%s %d%s %s %s", "ERROR on line ", *line, "\n", macro2,  "is not a valid decimal number!\n");          
+                        fprintf(output_file, "%s %d%s%s %s", "ERROR on line ", *line, "\n", macro2,  "is not a valid decimal number!\n");          
 
 
                     }
@@ -930,7 +1079,7 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
             
             // Label as argument
             else {
-            printf("arg: %s\n", macro2);
+
                 if ( sym_treatment(macro2) == true ) {
                          
                     // Searches sym in labels/sets list
@@ -945,11 +1094,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
                     else if ( memory_map != NULL ) {
                         
                         if ( output_file == NULL ) {
-                        	fprintf(stdout, "%s %d%s %s %s", "ERROR on line ", *line, "\n", macro2, "is not a known label!\n");         
+                        	fprintf(stdout, "%s %d%s%s %s", "ERROR on line ", *line, "\n", macro2, "is not a known label!\n");         
                         
                         }
                         else {
-                            fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro2,  "is not a known label!\n");         
+                            fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro2,  "is not a known label!\n");         
 
 
                         }    
@@ -962,11 +1111,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
                 else {
                 
                     if ( output_file == NULL ) {
-                    	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro2, "is not a valid sym argument!\n");         
+                    	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro2, "is not a valid sym argument!\n");         
                     
                     }
                     else {
-                        fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro2,  "is not a valid sym argument!\n");         
+                        fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro2,  "is not a valid sym argument!\n");         
 
 
                     }    
@@ -985,8 +1134,13 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
             char formatted_word[11];
             sprintf(formatted_word, "%.10X", directive_argument);                            
 
-            printf("dirArg: %d\n", directive_argument);
-	        printf("HEX %s MAP ADDRESS %d SIDE %d HEX ADR %d\n\n", formatted_word, *(address), *(side), -1);
+            if ( is_negative == true ) {
+                formatted_word[0] = 'F';
+                formatted_word[1] = 'F';
+
+            }
+
+	        //printf("HEX %s MAP ADDRESS %d SIDE %d HEX ADR %d\n\n", formatted_word, *(address), *(side), -1);
             for(int l=0; l < word_quantity ;l++) { 
 
                 list_insert_sorted(memory_map, formatted_word, NULL, NULL, *(address), *(side), -1);        
@@ -996,7 +1150,7 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
         }
 
         else {
-            printf("w %d\n", word_quantity);
+          //  printf("w %d\n", word_quantity);
             *(address) = word_quantity;
 
         }
@@ -1035,11 +1189,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
             if ( directive_argument < 0 ) {
 
                 if ( output_file == NULL ) {
-                	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1, "is not a valid hex number!\n");         
+                	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1, "is not a valid hex number!\n");         
                 
                 }
                 else {
-                    fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid hex number!\n");          
+                    fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid hex number!\n");          
 
 
                 }
@@ -1060,11 +1214,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
             // If error ocurred
             if ( directive_argument < 0 ) {
                 if ( output_file == NULL ) {
-                	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1, "is not a valid hex number!\n");         
+                	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1, "is not a valid hex number!\n");         
                 
                 }
                 else {
-                    fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid hex number!\n");          
+                    fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid hex number!\n");          
 
 
                 }
@@ -1098,11 +1252,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
                 else if ( memory_map != NULL ) {
                     
                     if ( output_file == NULL ) {
-                    	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1, "is not a known label!\n");         
+                    	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1, "is not a known label!\n");         
                     
                     }
                     else {
-                        fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1,  "is not a known label!\n");         
+                        fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1,  "is not a known label!\n");         
 
 
                     }    
@@ -1117,11 +1271,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
             else if ( memory_map != NULL ) {
             
                 if ( output_file == NULL ) {
-                	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1, "is not a valid sym argument!\n");         
+                	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1, "is not a valid sym argument!\n");         
                 
                 }
                 else {
-                    fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid sym argument!\n");         
+                    fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid sym argument!\n");         
 
 
                 }   
@@ -1138,7 +1292,7 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
             sprintf(formatted_word, "%.10X", directive_argument);
             
 
-	        printf("HEX %s MAP ADDRESS %d SIDE %d HEX ADR %d\n\n", formatted_word, *(address), *(side), -1);
+	       // printf("HEX %s MAP ADDRESS %d SIDE %d HEX ADR %d\n\n", formatted_word, *(address), *(side), -1);
             list_insert_sorted(memory_map, formatted_word, NULL, NULL, *(address), *(side), -1);        
         
         }
@@ -1160,11 +1314,11 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
             // If error ocurred
             if ( directive_argument < 0 ) {
                 if ( output_file == NULL ) {
-                	fprintf(stdout, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1, "is not a valid decimal number!\n");         
+                	fprintf(stdout, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1, "is not a valid decimal number!\n");         
                 
                 }
                 else {
-                    fprintf(output_file, "%s %d%s %s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid decimal number!\n");          
+                    fprintf(output_file, "%s %d%s%s %s", "ERROR on line", *line, "\n", macro1,  "is not a valid decimal number!\n");          
 
 
                 }   
@@ -1212,7 +1366,7 @@ void directive_treatment(char* directive, List memory_map, List label_list, int 
 */
 bool second_analysis(List command_list, List label_list, List memory_map, FILE* output_file) {
 
-    printf("entrou segunda analise\n");
+    //printf("entrou segunda analise\n");
 
 	node *current_node = command_list->next;
 
@@ -1226,9 +1380,9 @@ bool second_analysis(List command_list, List label_list, List memory_map, FILE* 
 
 	char *code;
 	
-	bool should_end;
-	bool should_skip;
 	bool error_ocurred = false;
+    bool should_end = false;
+    bool is_label = false;
 
 	int line = 1;
 	int address = 0;
@@ -1237,61 +1391,59 @@ bool second_analysis(List command_list, List label_list, List memory_map, FILE* 
 	// Runs through the list
 	while ( current_node != NULL && error_ocurred == false && address <= MAX_MEMORY ) {
 
-		should_end = false;
-		// Checks all the strings in a node
-		for(int i=0; i < STRING_NUMBER && error_ocurred == false && should_end == false ;i++) {
-			code = current_node->strings[i];
+        int j = 0;
+        code = current_node->strings[0];
+        
+        while ( code[j] == ' ' || code[j] == '\t' ) {
+            j = j + 1;
 
-		    should_skip = false;
-
-			// Checks the characters in a string
-			for(int j=0; code[j] != '\0' && should_end == false && should_skip == false && code != NULL ;j++) {
-
-                while ( code[j] == ' ' || code[j] == '\t' ) {
-                    j = j + 1;
-
-                }
-
-	printf("comando:%s\n", code);
-				// If it is a directive
-				if ( code[j] == '.' ) {
-					directive_treatment(code, memory_map, label_list, &address, &side, &line, &error_ocurred, output_file);
-					should_end = true;
-					
-				}
-
-				// If it is a label
-				else if ( code[j] == ':' ) {
-					should_skip = true;
-
-				}
-
-                // If it is a comment
-				else if ( code[j] == '#' ) {
-			        should_end = true;
+        }
+        
+        should_end = false;
+		// Checks the characters in a string
+		while ( code[j] != '\0' && code[j] != '\n' && should_end == false  && code != NULL && error_ocurred == false ) {
+            is_label = false;
+   //printf("comando:%s\n", code);
+			// If it is a directive
+			if ( code[j] == '.' ) {
+				directive_treatment(code, memory_map, label_list, &address, &side, &line, &error_ocurred, output_file);
+				should_end = true;
 				
+			}
+
+            // If it is a comment
+			else if ( code[j] == '#' ) {
+				should_end = true;
+			
+			}
+
+			// If it is a command
+			else if ( isspace(code[j]) && j != 0 && code[j-1] != ':' && !isspace(code[j-1]) )  {
+				should_end = true;
+
+//printf("entered instruction if, char:%d:j:%d\n", code[j], j);
+				instruction_treatment(code, memory_map, label_list, &address, &side, &line, &error_ocurred, output_file);
+
+				if ( side == LEFT ) {
+					side = RIGHT;
+
 				}
-				
-				// If it is a command
-				else if ( code[j] == '"' || code[j] == ' ' || code[j] == '\n') {
-					should_end = true;
+				else {
+					address = address + 1;
+					side = LEFT;
 
-					instruction_treatment(code, memory_map, label_list, &address, &side, &line, &error_ocurred, output_file);
-
-					if ( side == LEFT ) {
-						side = RIGHT;
-
-					}
-					else {
-						address = address + 1;
-						side = LEFT;
-
-					}
 				}
+			
+			
+			}
 
-		    }
+            if ( is_label == false ) {
+                j = j + 1;
+                
+            }
 
-		}
+	    }
+
 
 		line = line + 1;
 		current_node = current_node->next;

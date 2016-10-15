@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 // DEFINES
 #define COMMAND_SIZE 65 // 64 characters + eventual '\0'
