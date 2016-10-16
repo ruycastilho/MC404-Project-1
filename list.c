@@ -205,12 +205,3 @@ void list_free(List list) {
     }
 
 }
-
-/* ------------------------------------ */
-
-/* 
-	Function: ;
-    Param: ;
-
-    Return: .
-*/

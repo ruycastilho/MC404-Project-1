@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "list.h"
-#include "as_routines.h"
+#include "ias_analysis.h"
 
 // DEFINES
 #define LINE_SIZE 150
@@ -34,15 +34,10 @@ int main(int argc, char **argv) {
         List command_list = createList();
 
         // File is read while EOF isnt reached
-        while ( fgets(read_string, LINE_SIZE ,input_file) != NULL) {            
-        	// Content analysis. Only reads 2 strings, since comments are ignored                     
-
-            //printf("\ninicio ||| %s ||| fim \n", read_string);
+        while ( fgets(read_string, LINE_SIZE ,input_file) != NULL) {                               
             
-            // Inserts commands in command list
+            // Inserts commands in command list, using the first string.
 		    list_insert(command_list, read_string, NULL, NULL, 0, 0, 0);
-	        
-
 
         }
 
@@ -52,7 +47,7 @@ int main(int argc, char **argv) {
         // Creates and opens output file, if necessary
         char *output_file_name = NULL;
         FILE *output_file = NULL;
-        
+
         if ( argc == 3 ) {
             output_file_name = argv[2];
 
@@ -63,7 +58,7 @@ int main(int argc, char **argv) {
 
         }
 
-
+		// Creates label list
         List label_list = createList();
 
         // Runs first analysis
@@ -100,7 +95,6 @@ int main(int argc, char **argv) {
         list_free(command_list);
         free(read_string);
 
-
     }
     
     // Error handling
@@ -108,7 +102,6 @@ int main(int argc, char **argv) {
         fprintf(stdout, "%s", "ERROR\nCould not open the input file!\n");
     
     }
-
 
 	return 0;
 
