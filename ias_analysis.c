@@ -1,4 +1,4 @@
-/*  Trabalho 1 - MC404 : Montador de IAS
+/*  Trabalho 1 - MC404 : IAS Assembler
     Nome: Ruy Castilho Barrichelo RA: 177012 */
 
 // INCLUDES
@@ -119,7 +119,7 @@ bool first_analysis(List command_list, List label_list, List memory_map, FILE* o
 
             }
 
-        }
+        }   
 
 		// Updates line value and progresses in the list, if no errors ocurred
         if ( error_ocurred == false ) {
@@ -136,7 +136,7 @@ bool first_analysis(List command_list, List label_list, List memory_map, FILE* o
 
 
 /* 
-	Function: Stores a new label or set constant and its address;
+	Function: Stores a new label or SET constant and its address;
     Param: String containing label/constant, label list, 'address' and 
             'side' integers, pointers to both 'line' integer, boolean error flag,
             and output file;
@@ -583,7 +583,7 @@ void directive_analysis(char* directive, List memory_map, List label_list, int *
             }
 		}
 
-        // Sym treatment is called inside label_treatment.
+        // SET constants are stored in the same list, to avoid duplicates
         label_analysis(argument1, label_list, directive_argument, LEFT, line, error_ocurred, output_file);
         
 	}
@@ -734,22 +734,26 @@ void directive_analysis(char* directive, List memory_map, List label_list, int *
         }
         if ( memory_map != NULL ) {
 
-            char formatted_word[11];
-
             if ( is_negative == true ) {
-                directive_argument = - directive_argument;   
+                directive_argument = -directive_argument;
 
             }
-            sprintf(formatted_word, "%.10X", directive_argument);                            
+            
+            // Generates a formatted word containing the hexadecimal memory word
+            char treated_word[16]; // Stores 16 bits of information
+            word_treatment(directive_argument, treated_word);
+                      
 
             for(int l=0; l < word_quantity ;l++) { 
 
-				/*  Adds word to memory map, if second analysis is running
-					Uses first string to store word, first integer to store the memory map
+				/*  Adds word to memory map, if second analysis is running.
+					Uses first string to store half word, first integer to store the memory map
 					address, second one to store the memory word side and the third one to
-					store flag to inform that node contains a word.
+					store flag to inform that node contains half word.
+					The initial chars are ignored since the number is stored in 8 bits.
 				*/
-                list_insert_sorted(memory_map, formatted_word, NULL, NULL, *(address), *(side), -1);        
+                list_insert_sorted(memory_map, treated_word + 6, NULL, NULL, *(address), LEFT, -1);       
+                list_insert_sorted(memory_map, treated_word + 11, NULL, NULL, *(address), RIGHT, -1);
                 *(address) = *(address) + 1;     
             }
     
@@ -845,18 +849,20 @@ void directive_analysis(char* directive, List memory_map, List label_list, int *
 
         // If second analysis is running
         if ( memory_map != NULL ) {
-            char formatted_word[11];
-            
-            // Stores a formatted word containing the hexadecimal memory word
-            sprintf(formatted_word, "%.10X", directive_argument);
+
+            // Generates a formatted word containing the hexadecimal memory word
+            char treated_word[16]; // Stores 16 bits of information
+            word_treatment(directive_argument, treated_word);
 
 			/*  Adds word to memory map, if second analysis is running
 				Uses first string to store word, first integer to store the memory map
 				address, second one to store the memory word side and the third one to
 				store flag to inform that node contains a word.
-			*/
-            list_insert_sorted(memory_map, formatted_word, NULL, NULL, *(address), *(side), -1);        
-        
+				The initial chars are ignored since the number is stored in 8 bits.
+		    */
+            list_insert_sorted(memory_map, treated_word + 6, NULL, NULL, *(address), LEFT, -1);       
+            list_insert_sorted(memory_map, treated_word + 11, NULL, NULL, *(address), RIGHT, -1);
+
         }
 
         *(address) = *(address) + 1;
@@ -1043,31 +1049,47 @@ void print_map(List memory_map, FILE* output_file) {
             current_side = current_node->integers[1];
 
             // If it is on the left side
-            if (  current_side == LEFT && current_node->integers[2] >= 0 ) {
-                fprintf(stdout, "%.03X %s %.03X", current_node->integers[0], current_node->strings[0], current_node->integers[2]);
+            if ( current_side == LEFT ) {
+                
+                // If it is an instruction
+                if ( current_node->integers[2] >= 0 ) {
 
+                    fprintf(stdout, "%.3X %s %.3X", current_node->integers[0], current_node->strings[0], current_node->integers[2]);
+    
+                }
 
+                // If it is a word
+                else {
+                    word = current_node->strings[0];
+                    fprintf(stdout, "%.3X %.2s %.3s", current_node->integers[0], word, word + 2);     
+                
+                }
+                
                 // If right side is empty
                 if ( current_node->next == NULL || ( current_node->next != NULL && current_node->next->integers[1] == LEFT ) ) {
                     fprintf(stdout, "%s", " 00 000\n");
 
                 }
-
             }
-            
+
             // If it is on the right side
-            else if ( current_node->integers[2] >= 0 ) {            
-                fprintf(stdout, " %s %.03X\n", current_node->strings[0], current_node->integers[2]);
-
-            }
-
-			// If it is a word
             else {
-                word = current_node->strings[0];
-                fprintf(stdout, "%.3X %.2s %.3s %.2s %.3s\n", current_node->integers[0], word, 
-                        &(word[2]), &(word[5]), &(word[7]));
             
+                // If it is an instruction
+                if ( current_node->integers[2] >= 0 ) { 
+                    fprintf(stdout, " %s %.3X\n", current_node->strings[0], current_node->integers[2]);
+            
+                }
+                
+                // If it is a word
+                else {
+                    word = current_node->strings[0];
+                    fprintf(stdout, " %.2s %.3s\n", word, word + 2);     
+
+                }
+                
             }
+
 
             current_node = current_node->next;
             
@@ -1083,11 +1105,21 @@ void print_map(List memory_map, FILE* output_file) {
             current_side = current_node->integers[1];
  
             // If it is on the left side
-            if (  current_side == LEFT && current_node->integers[2] >= 0 ) {
+            if ( current_side == LEFT ) {
+                
+                // If it is an instruction
+                if ( current_node->integers[2] >= 0 ) {
 
-                fprintf(output_file, "%.3X %s %.3X", current_node->integers[0], current_node->strings[0], current_node->integers[2]);
+                    fprintf(output_file, "%.3X %s %.3X", current_node->integers[0], current_node->strings[0], current_node->integers[2]);
+    
+                }
 
-
+                else {
+                    word = current_node->strings[0];
+                    fprintf(output_file, "%.3X %.2s %.3s", current_node->integers[0], word, word + 2);     
+                
+                }
+                
                 // If right side is empty
                 if ( current_node->next == NULL || ( current_node->next != NULL && current_node->next->integers[1] == LEFT ) ) {
                     fprintf(output_file, "%s", " 00 000\n");
@@ -1097,19 +1129,23 @@ void print_map(List memory_map, FILE* output_file) {
             }
             
             // If it is on the right side
-            else if ( current_node->integers[2] >= 0 ) { 
-                fprintf(output_file, " %s %.3X\n", current_node->strings[0], current_node->integers[2]);
+            else {
             
+                // If it is an instruction
+                if ( current_node->integers[2] >= 0 ) { 
+                    fprintf(output_file, " %s %.3X\n", current_node->strings[0], current_node->integers[2]);
+            
+                }
+                
+                // If it is a word
+                else {
+                    word = current_node->strings[0];
+                    fprintf(output_file, " %.2s %.3s\n", word, word + 2);     
+
+                }
+                
             }
 
-			// If it is a word            
-            else {    
-
-                word = current_node->strings[0];
-                fprintf(output_file, "%.3X %.2s %.3s %.2s %.3s\n", current_node->integers[0], word, 
-                        &(word[2]), &(word[5]), &(word[7]));
-                 
-            }
             
             current_node = current_node->next;
 

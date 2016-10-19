@@ -1,4 +1,4 @@
-/*  Trabalho 1 - MC404 : Montador de IAS
+/*  Trabalho 1 - MC404 : IAS Assembler
     Nome: Ruy Castilho Barrichelo RA: 177012 */
 
 
@@ -40,7 +40,7 @@ bool first_analysis(List command_list, List label_list, List memory_map, FILE* o
 
 
 /* 
-	Function: Stores a new label or set constant and its address;
+	Function: Stores a new label or SET constant and its address;
     Param: String containing label/constant, label list, 'address' and 
             'side' integers, pointers to both 'line' integer, boolean error flag,
             and output file;

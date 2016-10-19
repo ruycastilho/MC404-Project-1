@@ -1,4 +1,4 @@
-/*  Trabalho 1 - MC404 : Montador de IAS
+/*  Trabalho 1 - MC404 : IAS Assembler
     Nome: Ruy Castilho Barrichelo RA: 177012 */
 
 
@@ -61,5 +61,12 @@ bool line_treatment(char* end_line, int* line, bool* error_ocurred, FILE* output
 void error_treatment(int* line, char* element, char* event, bool* error_ocurred, FILE* output_file);
 
 
-//char* word_treatment();
+/* 
+	Function: Treats words, converting values to hexadecimal algarisms in a string;
+    Param: Integer to be converted, string to store the converted number;
+
+    Return: None.
+*/
+void word_treatment(long int integer, char* hex_string);
+
 #endif

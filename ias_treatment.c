@@ -1,4 +1,4 @@
-/*  Trabalho 1 - MC404 : Montador de IAS
+/*  Trabalho 1 - MC404 : IAS Assembler
     Nome: Ruy Castilho Barrichelo RA: 177012 */
     
     
@@ -236,4 +236,45 @@ void error_treatment(int* line, char* element, char* event, bool* error_ocurred,
 
 }
 
-//char* word_treatment() {}
+/* 
+	Function: Treats words, converting values to hexadecimal algarisms in a string;
+    Param: Integer to be converted, string to store the converted number;
+
+    Return: None.
+*/
+void word_treatment(long int integer, char* hex_string) {
+
+    int value = 0;
+    int bits[64]; // Stores 64 bits of a long int
+    int i;
+    int bit_value = 1; // Used as the value of the bit during the conversion 
+
+    // Obtains the bits
+    for(i=0; i < sizeof(long int)*8 ; i++ ) {
+        bits[i] = (integer >> i) & 1;
+
+    }
+
+    // Runs through the bits in packs of 4 bits
+    for(int k=0; k < sizeof(long int)*8 ; k = k + 4) {
+
+        // Obtains the value of each bit
+        for(i=k, value=0, bit_value=1; i < (k + 4) ; i++, bit_value = bit_value*2 ) {
+            value = value + bits[i]*bit_value;
+
+        }
+
+        // Converts into hexadecimal
+        if ( value < 10 ) {
+            hex_string[15-(k/4)] = '0' + value;
+
+        }
+
+        else {
+            hex_string[15-(k/4)] = 'A' + value - 10;
+        
+        }
+
+    }
+
+}

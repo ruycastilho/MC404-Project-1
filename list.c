@@ -113,11 +113,13 @@ void list_insert_sorted(List list, char *string1, char *string2, char *string3, 
 
     if ( current_node->next != NULL ) {
 
+        // Sorts according to value1
         while ( current_node->next != NULL && current_node->next->integers[0] < value1 ) {
             current_node = current_node->next;
 
         }
 
+        // Sorts according to value2
         if ( current_node->next != NULL && current_node->next->integers[0] == value1 && current_node->next->integers[1] < value2 ) {
            current_node = current_node->next;  
         
@@ -125,7 +127,18 @@ void list_insert_sorted(List list, char *string1, char *string2, char *string3, 
 
     }
 
-    new_node->next = current_node->next;
+    // Replaces node, if necessary
+    if ( current_node->next != NULL && current_node->next->integers[0] == value1 && current_node->next->integers[1] == value2 ) {
+        new_node->next = current_node->next->next;
+        free(current_node->next);     
+
+    }
+
+    else {
+        new_node->next = current_node->next;
+    
+    }
+
     current_node->next = new_node;
 
     return;
