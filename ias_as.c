@@ -1,4 +1,4 @@
-/*  Trabalho 1 - MC404 : Montador de IAS
+/*  Trabalho 1 - MC404 : IAS Assembler
     Nome: Ruy Castilho Barrichelo RA: 177012 */
 
 
@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
 
         }
 
-		// Creates label list
+		// Creates label and SET list
         List label_list = createList();
 
         // Runs first analysis
